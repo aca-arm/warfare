@@ -1,133 +1,218 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Shooter Game with Music</title>
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: #000;
-      font-family: sans-serif;
-      user-select: none;
-    }
-    canvas {
-      display: block;
-      background: #111;
-    }
-    #startButton {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      padding: 20px 40px;
-      font-size: 24px;
-      background-color: #28a745;
-      color: white;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      z-index: 10;
-    }
-  </style>
+<meta charset="UTF-8" />
+<title>2-Player Shooter with Walls and Music</title>
+<style>
+  body {
+    margin: 0;
+    background-color: #111;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    background-color: #222;
+    margin: 0 auto;
+    border: 2px solid #555;
+  }
+</style>
 </head>
 <body>
-  <button id="startButton">Start Game</button>
-  <canvas id="gameCanvas" width="800" height="600"></canvas>
 
-  <!-- Streamed background music -->
-  <audio id="bgMusic" loop>
-    <source src="https://www.bensound.com/bensound-music/bensound-epic.mp3" type="audio/mp3">
-    Your browser does not support audio playback.
-  </audio>
+<canvas id="game" width="800" height="600"></canvas>
 
-  <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const startButton = document.getElementById('startButton');
-    const bgMusic = document.getElementById('bgMusic');
+<audio id="bgMusic" loop>
+  <source src="https://cdn.pixabay.com/download/audio/2022/03/23/audio_0ef2703d52.mp3?filename=ambient-background-11018.mp3" type="audio/mp3" />
+  Your browser does not support the audio element.
+</audio>
 
-    let player = { x: 380, y: 550, width: 40, height: 20, speed: 5 };
-    let bullets = [];
-    let enemies = [];
-    let keys = {};
+<script>
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const music = document.getElementById('bgMusic');
 
-    function spawnEnemy() {
-      const x = Math.random() * (canvas.width - 30);
-      enemies.push({ x, y: -20, width: 30, height: 20, speed: 2 });
-    }
+  // Start music automatically (some browsers require user interaction first)
+  window.addEventListener('click', () => {
+    music.play();
+  }, { once: true });
 
-    function drawPlayer() {
-      ctx.fillStyle = 'lime';
-      ctx.fillRect(player.x, player.y, player.width, player.height);
-    }
+  // Players setup
+  const player1 = {
+    x: 100, y: 540, w: 30, h: 30,
+    color: '#00ff00',
+    speed: 5,
+    bullets: []
+  };
 
-    function drawBullets() {
-      ctx.fillStyle = 'yellow';
-      bullets.forEach(b => ctx.fillRect(b.x, b.y, 5, 10));
-    }
+  const player2 = {
+    x: 670, y: 540, w: 30, h: 30,
+    color: '#ff0000',
+    speed: 5,
+    bullets: []
+  };
 
-    function drawEnemies() {
-      ctx.fillStyle = 'red';
-      enemies.forEach(e => ctx.fillRect(e.x, e.y, e.width, e.height));
-    }
+  // Walls array: rectangles to block movement
+  const walls = [
+    { x: 200, y: 450, w: 400, h: 20 },
+    { x: 0, y: 350, w: 150, h: 20 },
+    { x: 650, y: 350, w: 150, h: 20 },
+  ];
 
-    function updateGame() {
-      if (keys['ArrowLeft'] && player.x > 0) player.x -= player.speed;
-      if (keys['ArrowRight'] && player.x + player.width < canvas.width) player.x += player.speed;
+  // Keyboard state
+  const keys = {};
 
-      bullets.forEach(b => b.y -= 5);
-      bullets = bullets.filter(b => b.y > 0);
+  // Player bullet properties
+  const bulletSpeed = 10;
+  const bulletSize = 6;
 
-      enemies.forEach(e => e.y += e.speed);
-      enemies = enemies.filter(e => e.y < canvas.height + 20);
+  // Helper: rectangle collision
+  function rectsCollide(r1, r2) {
+    return !(
+      r1.x + r1.w < r2.x ||
+      r1.x > r2.x + r2.w ||
+      r1.y + r1.h < r2.y ||
+      r1.y > r2.y + r2.h
+    );
+  }
 
-      bullets.forEach((b, bi) => {
-        enemies.forEach((e, ei) => {
-          if (b.x < e.x + e.width && b.x + 5 > e.x &&
-              b.y < e.y + e.height && b.y + 10 > e.y) {
-            bullets.splice(bi, 1);
-            enemies.splice(ei, 1);
-          }
-        });
-      });
-    }
-
-    function drawGame() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawPlayer();
-      drawBullets();
-      drawEnemies();
-    }
-
-    function gameLoop() {
-      updateGame();
-      drawGame();
-      requestAnimationFrame(gameLoop);
-    }
-
-    function fireBullet() {
-      bullets.push({ x: player.x + player.width / 2 - 2.5, y: player.y });
-    }
-
-    window.addEventListener('keydown', e => {
-      keys[e.key] = true;
-      if (e.key === ' ' || e.key === 'Spacebar') {
-        fireBullet();
+  // Check if player hits any wall on the new position
+  function canMove(player, newX, newY) {
+    const testRect = { x: newX, y: newY, w: player.w, h: player.h };
+    for (const wall of walls) {
+      if (rectsCollide(testRect, wall)) {
+        return false;
       }
-    });
+    }
+    // Also keep inside canvas
+    if (newX < 0 || newX + player.w > canvas.width) return false;
+    if (newY < 0 || newY + player.h > canvas.height) return false;
 
-    window.addEventListener('keyup', e => {
-      keys[e.key] = false;
-    });
+    return true;
+  }
 
-    startButton.addEventListener('click', () => {
-      startButton.style.display = 'none';
-      bgMusic.volume = 0.3;
-      bgMusic.play();
-      setInterval(spawnEnemy, 1000);
-      gameLoop();
+  // Move players according to keys
+  function movePlayers() {
+    // Player 1 controls: WASD
+    if (keys['a']) {
+      if (canMove(player1, player1.x - player1.speed, player1.y)) player1.x -= player1.speed;
+    }
+    if (keys['d']) {
+      if (canMove(player1, player1.x + player1.speed, player1.y)) player1.x += player1.speed;
+    }
+    if (keys['w']) {
+      if (canMove(player1, player1.x, player1.y - player1.speed)) player1.y -= player1.speed;
+    }
+    if (keys['s']) {
+      if (canMove(player1, player1.x, player1.y + player1.speed)) player1.y += player1.speed;
+    }
+
+    // Player 2 controls: Arrow Keys
+    if (keys['ArrowLeft']) {
+      if (canMove(player2, player2.x - player2.speed, player2.y)) player2.x -= player2.speed;
+    }
+    if (keys['ArrowRight']) {
+      if (canMove(player2, player2.x + player2.speed, player2.y)) player2.x += player2.speed;
+    }
+    if (keys['ArrowUp']) {
+      if (canMove(player2, player2.x, player2.y - player2.speed)) player2.y -= player2.speed;
+    }
+    if (keys['ArrowDown']) {
+      if (canMove(player2, player2.x, player2.y + player2.speed)) player2.y += player2.speed;
+    }
+  }
+
+  // Shoot bullet for a player
+  function shoot(player) {
+    // Bullets go upwards for player1, downwards for player2
+    let dir = player === player1 ? -1 : 1;
+    let bulletX = player.x + player.w / 2 - bulletSize / 2;
+    let bulletY = player === player1 ? player.y : player.y + player.h - bulletSize;
+
+    player.bullets.push({
+      x: bulletX,
+      y: bulletY,
+      w: bulletSize,
+      h: bulletSize,
+      speed: 12 * dir,
     });
-  </script>
+  }
+
+  // Update bullets positions, remove out-of-screen
+  function updateBullets() {
+    [player1, player2].forEach(player => {
+      player.bullets.forEach((b, i) => {
+        b.y += b.speed;
+
+        // Remove bullet if off-screen or hits a wall
+        if (b.y < 0 || b.y > canvas.height) {
+          player.bullets.splice(i, 1);
+          return;
+        }
+
+        // Check collision with walls
+        for (const wall of walls) {
+          if (rectsCollide(b, wall)) {
+            player.bullets.splice(i, 1);
+            break;
+          }
+        }
+      });
+    });
+  }
+
+  // Draw everything
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw walls
+    ctx.fillStyle = '#666';
+    walls.forEach(w => ctx.fillRect(w.x, w.y, w.w, w.h));
+
+    // Draw players
+    ctx.fillStyle = player1.color;
+    ctx.fillRect(player1.x, player1.y, player1.w, player1.h);
+
+    ctx.fillStyle = player2.color;
+    ctx.fillRect(player2.x, player2.y, player2.w, player2.h);
+
+    // Draw bullets
+    ctx.fillStyle = player1.color;
+    player1.bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
+
+    ctx.fillStyle = player2.color;
+    player2.bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
+  }
+
+  // Game loop
+  function loop() {
+    movePlayers();
+    updateBullets();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // Keyboard events
+  window.addEventListener('keydown', e => {
+    keys[e.key] = true;
+
+    // Player 1 shoot: Spacebar
+    if (e.key === ' ') {
+      shoot(player1);
+    }
+    // Player 2 shoot: Enter
+    if (e.key === 'Enter') {
+      shoot(player2);
+    }
+  });
+
+  window.addEventListener('keyup', e => {
+    keys[e.key] = false;
+  });
+
+  // Start game loop
+  loop();
+</script>
+
 </body>
 </html>
+
