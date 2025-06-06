@@ -1,249 +1,477 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html>Add commentMore actions
+<html>
 <head>
-<meta charset="UTF-8" />
-<title>Warfare Game - Health, Ammo, Reload Bars</title>
-<style>
-  body { background: #222; color: #fff; font-family: Arial, sans-serif; text-align:center; }
-  canvas { background: #333; display: block; margin: 20px auto; border: 2px solid #555; }
-
-  .status-bar {
-    width: 300px;
-    height: 20px;
-    background: #555;
-    border-radius: 10px;
-    margin: 5px auto 15px auto;
-    overflow: hidden;
-    position: relative;
-  }
-  .bar-fill {
-    height: 100%;
-    border-radius: 10px;
-    transition: width 0.2s ease;
-  }
-  #p1Health { background: #f33; width: 100%; }
-  #p2Health { background: #33f; width: 100%; }
-  #p1Ammo { background: #faa; width: 100%; }
-  #p2Ammo { background: #aaf; width: 100%; }
-  #p1Reload { background: #f99; width: 0%; position: absolute; top: 0; left: 0; opacity: 0.7; }
-  #p2Reload { background: #99f; width: 0%; position: absolute; top: 0; left: 0; opacity: 0.7; }
-</style>
+  <title>War Duel Ultimate Reload & Power-Ups</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #111;
+      color: white;
+      text-align: center;
+      user-select: none;
+    }
+    #menu {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.95);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    }
+    button {
+      padding: 12px 30px;
+      font-size: 24px;
+      margin-top: 20px;
+      cursor: pointer;
+      background: #222;
+      border: 2px solid white;
+      color: white;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: white;
+      color: black;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      background: #222;
+      border: 3px solid white;
+      margin-top: 10px;
+    }
+    .health-bar, .ammo-bar {
+      width: 200px;
+      height: 20px;
+      background: #555;
+      margin: 5px auto;
+      border: 2px solid white;
+      border-radius: 5px;
+      position: relative;
+    }
+    .health-fill, .ammo-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+    .health-fill {
+      background: limegreen;
+    }
+    .ammo-fill {
+      background: deepskyblue;
+    }
+    #scoreboard {
+      margin: 15px auto;
+      font-size: 22px;
+      max-width: 400px;
+      display: flex;
+      justify-content: space-around;
+      border: 2px solid white;
+      padding: 10px;
+      border-radius: 8px;
+      user-select: none;
+    }
+  </style>
 </head>
 <body>
-<h1>Warfare Game - Health, Ammo & Reload Bars</h1>
 
-<div>
-  <div>Player 1 Health</div>
-  <div class="status-bar">
-    <div id="p1Health" class="bar-fill"></div>
-  </div>
-  <div>Player 1 Ammo</div>
-  <div class="status-bar" style="position:relative;">
-    <div id="p1Ammo" class="bar-fill"></div>
-    <div id="p1Reload" class="bar-fill"></div>
-  </div>
+<div id="menu">
+  <h1>WAR DUEL ULTIMATE</h1>
+  <h3>Player 1 (Blue):</h3>
+  <p>Move: W A S D | Shoot Basic: F | Shoot Fast: G | Reload: R</p>
+  <h3>Player 2 (Red):</h3>
+  <p>Move: Arrow Keys | Shoot Basic: Enter | Shoot Fast: Shift | Reload: Backspace</p>
+  <button onclick="startGame()">Start Game</button>
 </div>
 
-<div>
-  <div>Player 2 Health</div>
-  <div class="status-bar">
-    <div id="p2Health" class="bar-fill"></div>
-  </div>
-  <div>Player 2 Ammo</div>
-  <div class="status-bar" style="position:relative;">
-    <div id="p2Ammo" class="bar-fill"></div>
-    <div id="p2Reload" class="bar-fill"></div>
-  </div>
+<canvas id="game" width="800" height="500"></canvas>
+
+<div id="scoreboard" style="display:none;">
+  <div>Player 1 Wins: <span id="p1score">0</span></div>
+  <div>Player 2 Wins: <span id="p2score">0</span></div>
+  <div>Round: <span id="roundnum">1</span></div>
 </div>
 
-<canvas id="game" width="600" height="400"></canvas>
+<div style="display:flex; justify-content: space-around; max-width: 820px; margin: 10px auto;">
+  <div>
+    <div>Player 1 Health</div>
+    <div class="health-bar"><div id="p1health" class="health-fill" style="width: 100%;"></div></div>
+    <div>Player 1 Ammo</div>
+    <div class="ammo-bar"><div id="p1ammo" class="ammo-fill" style="width: 100%;"></div></div>
+  </div>
+  <div>
+    <div>Player 2 Health</div>
+    <div class="health-bar"><div id="p2health" class="health-fill" style="width: 100%;"></div></div>
+    <div>Player 2 Ammo</div>
+    <div class="ammo-bar"><div id="p2ammo" class="ammo-fill" style="width: 100%;"></div></div>
+  </div>
+</div>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
-const keys = {};
-window.addEventListener("keydown", e => { keys[e.code] = true; });
-window.addEventListener("keyup", e => { keys[e.code] = false; });
+const p1HealthBar = document.getElementById("p1health");
+const p2HealthBar = document.getElementById("p2health");
+const p1AmmoBar = document.getElementById("p1ammo");
+const p2AmmoBar = document.getElementById("p2ammo");
 
-// Player class
-class Player {
-  constructor(x, y, color, controls) {
-    this.x = x;
-    this.y = y;
-    this.width = 30;
-    this.height = 30;
-    this.color = color;
-    this.speed = 3;
-    this.health = 100;
-    this.maxHealth = 100;
-    this.ammo = 10;
-    this.maxAmmo = 10;
-    this.reloadTime = 0;
-    this.reloadCooldown = 120; // frames to reload
-    this.controls = controls; // {up, down, left, right, shoot}
-    this.bullets = [];
-    this.canShoot = true;
-  }
-  move() {
-    if (keys[this.controls.up] && this.y > 0) this.y -= this.speed;
-    if (keys[this.controls.down] && this.y + this.height < canvas.height) this.y += this.speed;
-    if (keys[this.controls.left] && this.x > 0) this.x -= this.speed;
-    if (keys[this.controls.right] && this.x + this.width < canvas.width) this.x += this.speed;
-  }
-  shoot() {
-    if (keys[this.controls.shoot] && this.ammo > 0 && this.canShoot && this.reloadTime === 0) {
-      this.bullets.push(new Bullet(this.x + this.width / 2, this.y + this.height / 2, this.color, this));
-      this.ammo--;
-      this.canShoot = false;
-      setTimeout(() => { this.canShoot = true; }, 300); // 300ms cooldown between shots
-    }
-  }
-  reload() {
-    if (this.ammo === 0) {
-      this.reloadTime++;
-      if (this.reloadTime >= this.reloadCooldown) {
-        this.ammo = this.maxAmmo;
-        this.reloadTime = 0;
-      }
-    } else {
-      this.reloadTime = 0;
-    }
-  }
-  update() {
-    this.move();
-    this.shoot();
-    this.reload();
+const p1ScoreSpan = document.getElementById("p1score");
+const p2ScoreSpan = document.getElementById("p2score");
+const roundSpan = document.getElementById("roundnum");
+const scoreboard = document.getElementById("scoreboard");
 
-    this.bullets.forEach(bullet => bullet.update());
+const PLAYER_RADIUS = 20;
+const BULLET_RADIUS = 5;
+const POWERUP_RADIUS = 12;
+const WALL_COLOR = "#555";
 
-    this.bullets = this.bullets.filter(bullet => !bullet.toDelete);
-  }
-  draw() {
-    ctx.fillStyle = this.color;
-    ctx.fillRect(this.x, this.y, this.width, this.height);
-    this.bullets.forEach(bullet => bullet.draw());
-  }
-}
-
-// Bullet class
-class Bullet {
-  constructor(x, y, color, owner) {
-    this.x = x;
-    this.y = y;
-    this.radius = 5;
-    this.speed = 7;
-    this.color = color;
-    this.owner = owner;
-    this.toDelete = false;
-
-    // Shoot direction: player1 shoots right, player2 shoots left
-    this.vx = owner.color === "red" ? this.speed : -this.speed;
-    this.vy = 0;
-  }
-  update() {
-    this.x += this.vx;
-
-    // Out of bounds
-    if (this.x < 0 || this.x > canvas.width) this.toDelete = true;
-
-    // Check collision with opponent
-    let opponent = this.owner === player1 ? player2 : player1;
-    if (
-      this.x + this.radius > opponent.x &&
-      this.x - this.radius < opponent.x + opponent.width &&
-      this.y + this.radius > opponent.y &&
-      this.y - this.radius < opponent.y + opponent.height
-    ) {
-      opponent.health -= 10;
-      if (opponent.health < 0) opponent.health = 0;
-      this.toDelete = true;
-    }
-
-    // Check collision with walls
-    for (const wall of walls) {
-      if (
-        this.x + this.radius > wall.x &&
-        this.x - this.radius < wall.x + wall.width &&
-        this.y + this.radius > wall.y &&
-        this.y - this.radius < wall.y + wall.height
-      ) {
-        this.toDelete = true;
-      }
-    }
-  }
-  draw() {
-    ctx.beginPath();
-    ctx.fillStyle = this.color;
-    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-// Walls
-const walls = [
-  { x: 200, y: 150, width: 20, height: 100 },
-  { x: 400, y: 100, width: 20, height: 200 }
+let walls = [
+  {x: 300, y: 150, w: 20, h: 200},
+  {x: 500, y: 100, w: 20, h: 300},
+  {x: 100, y: 350, w: 200, h: 20},
+  {x: 600, y: 350, w: 150, h: 20},
 ];
 
-// Players setup
-const player1 = new Player(50, 50, "red", {
-  up: "KeyW", down: "KeyS", left: "KeyA", right: "KeyD", shoot: "Space"
-});
-const player2 = new Player(520, 320, "blue", {
-  up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight", shoot: "Enter"
-});
+function circleRectCollision(cx, cy, cr, rx, ry, rw, rh) {
+  let closestX = Math.max(rx, Math.min(cx, rx + rw));
+  let closestY = Math.max(ry, Math.min(cy, ry + rh));
+  let dx = cx - closestX;
+  let dy = cy - closestY;
+  return (dx * dx + dy * dy) < (cr * cr);
+}
 
-function updateStatusBars() {
-  document.getElementById("p1Health").style.width = player1.health + "%";
-  document.getElementById("p2Health").style.width = player2.health + "%";
+function circleCollision(x1, y1, r1, x2, y2, r2) {
+  let dist = Math.hypot(x1 - x2, y1 - y2);
+  return dist < r1 + r2;
+}
 
-  document.getElementById("p1Ammo").style.width = (player1.ammo / player1.maxAmmo) * 100 + "%";
-  document.getElementById("p2Ammo").style.width = (player2.ammo / player2.maxAmmo) * 100 + "%";
+let scores = { p1: 0, p2: 0 };
+let round = 1;
 
-  // Reload bar width = reloadTime / reloadCooldown * 100%
-  document.getElementById("p1Reload").style.width = (player1.reloadTime / player1.reloadCooldown) * 100 + "%";
-  document.getElementById("p2Reload").style.width = (player2.reloadTime / player2.reloadCooldown) * 100 + "%";
+let p1 = {
+  x: 100, y: 250, color: "blue",
+  keys: { up: "w", down: "s", left: "a", right: "d", fireBasic: "f", fireFast: "g", reload: "r" },
+  bullets: [],
+  health: 100,
+  ammo: 10,
+  reloading: false,
+  reloadTimer: 0
+};
+
+let p2 = {
+  x: 700, y: 250, color: "red",
+  keys: { up: "arrowup", down: "arrowdown", left: "arrowleft", right: "arrowright", fireBasic: "enter", fireFast: "shift", reload: "backspace" },
+  bullets: [],
+  health: 100,
+  ammo: 10,
+  reloading: false,
+  reloadTimer: 0
+};
+
+let powerUps = [];
+
+let keys = {};
+let running = false;
+
+document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+function playGunshotSound() {
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const bufferSize = audioCtx.sampleRate * 0.1;
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  let data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+  }
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buffer;
+  const highpass = audioCtx.createBiquadFilter();
+  highpass.type = "highpass";
+  highpass.frequency.setValueAtTime(1000, audioCtx.currentTime);
+  const gainNode = audioCtx.createGain();
+  gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+  noise.connect(highpass);
+  highpass.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+  const osc = audioCtx.createOscillator();
+  const oscGain = audioCtx.createGain();
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.1);
+  oscGain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+  oscGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+  osc.connect(oscGain);
+  oscGain.connect(audioCtx.destination);
+  noise.start();
+  noise.stop(audioCtx.currentTime + 0.1);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.1);
+}
+
+function playReloadSound() {
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+  osc.type = "square";
+  osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.3);
+  gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+  osc.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.3);
+}
+
+function playHitSound() {
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.1);
+  gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+  osc.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.1);
+}
+
+function playPowerupSound() {
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(900, audioCtx.currentTime + 0.2);
+  gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+  osc.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.2);
+}
+
+function movePlayer(p) {
+  let speed = 4;
+  let newX = p.x;
+  let newY = p.y;
+
+  if (keys[p.keys.up]) newY -= speed;
+  if (keys[p.keys.down]) newY += speed;
+  if (keys[p.keys.left]) newX -= speed;
+  if (keys[p.keys.right]) newX += speed;
+
+  // Check wall collisions for player
+  let collide = walls.some(wall => circleRectCollision(newX, newY, PLAYER_RADIUS, wall.x, wall.y, wall.w, wall.h));
+  if (!collide && newX > PLAYER_RADIUS && newX < canvas.width - PLAYER_RADIUS) p.x = newX;
+  if (!collide && newY > PLAYER_RADIUS && newY < canvas.height - PLAYER_RADIUS) p.y = newY;
+}
+
+function fireBullet(p, speed, damage) {
+  if (p.ammo <= 0 || p.reloading) return;
+  let dx = p === p1 ? speed : -speed;
+  p.bullets.push({ x: p.x, y: p.y, dx, life: 120, damage });
+  p.ammo--;
+  playGunshotSound();
+}
+
+function updateBullets(p, target) {
+  for (let i = p.bullets.length - 1; i >= 0; i--) {
+    let b = p.bullets[i];
+    b.x += b.dx;
+    b.life--;
+    if (b.life <= 0) {
+      p.bullets.splice(i, 1);
+      continue;
+    }
+    // Check wall collision for bullet
+    if (walls.some(wall => circleRectCollision(b.x, b.y, BULLET_RADIUS, wall.x, wall.y, wall.w, wall.h))) {
+      p.bullets.splice(i, 1);
+      continue;
+    }
+    // Check collision with target player
+    let dist = Math.hypot(b.x - target.x, b.y - target.y);
+    if (dist < PLAYER_RADIUS + BULLET_RADIUS) {
+      target.health -= b.damage;
+      p.bullets.splice(i, 1);
+      playHitSound();
+      if (target.health < 0) target.health = 0;
+    }
+  }
+}
+
+function drawPlayer(p) {
+  ctx.beginPath();
+  ctx.fillStyle = p.color;
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 3;
+  ctx.arc(p.x, p.y, PLAYER_RADIUS, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+}
+
+function drawBullets(p) {
+  ctx.fillStyle = "white";
+  p.bullets.forEach(b => {
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, BULLET_RADIUS, 0, Math.PI * 2);
+    ctx.fill();
+  });
 }
 
 function drawWalls() {
-  ctx.fillStyle = "#888";
-  for (const wall of walls) {
-    ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
-  }
+  ctx.fillStyle = WALL_COLOR;
+  walls.forEach(wall => {
+    ctx.fillRect(wall.x, wall.y, wall.w, wall.h);
+  });
+}
+
+function drawPowerUps() {
+  powerUps.forEach(pu => {
+    ctx.beginPath();
+    ctx.arc(pu.x, pu.y, POWERUP_RADIUS, 0, Math.PI * 2);
+    ctx.fillStyle = pu.type === "health" ? "lime" : "deepskyblue";
+    ctx.fill();
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = "white";
+    ctx.font = "16px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(pu.type === "health" ? "+" : "A", pu.x, pu.y);
+  });
+}
+
+function spawnPowerUp() {
+  const types = ["health", "ammo"];
+  const type = types[Math.floor(Math.random() * types.length)];
+  let x, y, safe;
+  do {
+    x = Math.random() * (canvas.width - POWERUP_RADIUS * 2) + POWERUP_RADIUS;
+    y = Math.random() * (canvas.height - POWERUP_RADIUS * 2) + POWERUP_RADIUS;
+    // avoid spawning inside walls or too close to players
+    safe = !walls.some(wall => circleRectCollision(x, y, POWERUP_RADIUS, wall.x, wall.y, wall.w, wall.h)) &&
+           Math.hypot(x - p1.x, y - p1.y) > 60 &&
+           Math.hypot(x - p2.x, y - p2.y) > 60;
+  } while(!safe);
+  powerUps.push({x, y, type});
+}
+
+function checkPowerUps() {
+  [p1, p2].forEach(p => {
+    powerUps.forEach((pu, i) => {
+      if (circleCollision(p.x, p.y, PLAYER_RADIUS, pu.x, pu.y, POWERUP_RADIUS)) {
+        if (pu.type === "health") {
+          p.health = Math.min(100, p.health + 30);
+        } else if (pu.type === "ammo") {
+          p.ammo = Math.min(10, p.ammo + 5);
+        }
+        playPowerupSound();
+        powerUps.splice(i, 1);
+      }
+    });
+  });
+}
+
+function updateUI() {
+  p1HealthBar.style.width = p1.health + "%";
+  p2HealthBar.style.width = p2.health + "%";
+  p1AmmoBar.style.width = (p1.ammo / 10 * 100) + "%";
+  p2AmmoBar.style.width = (p2.ammo / 10 * 100) + "%";
+  p1ScoreSpan.textContent = scores.p1;
+  p2ScoreSpan.textContent = scores.p2;
+  roundSpan.textContent = round;
+}
+
+function resetPlayers() {
+  p1.x = 100; p1.y = 250; p1.health = 100; p1.ammo = 10; p1.bullets = []; p1.reloading = false; p1.reloadTimer = 0;
+  p2.x = 700; p2.y = 250; p2.health = 100; p2.ammo = 10; p2.bullets = []; p2.reloading = false; p2.reloadTimer = 0;
+  powerUps = [];
+}
+
+function gameOver(winner) {
+  scores[winner]++;
+  alert(`Player ${winner === 'p1' ? '1' : '2'} wins this round!`);
+  round++;
+  resetPlayers();
 }
 
 function gameLoop() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!running) return;
 
-  drawWalls();
+  movePlayer(p1);
+  movePlayer(p2);
 
-  player1.update();
-  player2.update();
+  // Shooting (basic & fast)
+  if (keys[p1.keys.fireBasic]) fireBullet(p1, 9, 20);
+  if (keys[p1.keys.fireFast]) fireBullet(p1, 14, 10);
 
-  player1.draw();
-  player2.draw();
+  if (keys[p2.keys.fireBasic]) fireBullet(p2, -9, 20);
+  if (keys[p2.keys.fireFast]) fireBullet(p2, -14, 10);
 
-  updateStatusBars();
+  // Reloading
+  [p1, p2].forEach(p => {
+    if (!p.reloading && keys[p.keys.reload]) {
+      p.reloading = true;
+      p.reloadTimer = 60; // 1 second approx
+      playReloadSound();
+    }
+    if (p.reloading) {
+      p.reloadTimer--;
+      if (p.reloadTimer <= 0) {
+        p.ammo = 10;
+        p.reloading = false;
+      }
+    }
+  });
 
-  // Check if game over
-  if (player1.health <= 0 || player2.health <= 0) {
-    ctx.fillStyle = "white";
-    ctx.font = "48px Arial";
-    ctx.fillText(
-      player1.health <= 0 ? "Player 2 Wins!" : "Player 1 Wins!",
-      canvas.width / 2 - 140,
-      canvas.height / 2
-    );
-  } else {
-    requestAnimationFrame(gameLoop);
+  updateBullets(p1, p2);
+  updateBullets(p2, p1);
+
+  checkPowerUps();
+
+  // Game over check
+  if (p1.health <= 0) {
+    gameOver('p2');
+  } else if (p2.health <= 0) {
+    gameOver('p1');
   }
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawWalls();
+  drawPlayer(p1);
+  drawPlayer(p2);
+  drawBullets(p1);
+  drawBullets(p2);
+  drawPowerUps();
+
+  updateUI();
+
+  requestAnimationFrame(gameLoop);
 }
 
-// Start game loop
-gameLoop();
-</script>
+function startGame() {
+  document.getElementById("menu").style.display = "none";
+  scoreboard.style.display = "flex";
+  resetPlayers();
+  running = true;
+  gameLoop();
+}
 
+setInterval(() => {
+  if (running && powerUps.length < 3) spawnPowerUp();
+}, 10000);
+
+</script>
 </body>
 </html>
 
